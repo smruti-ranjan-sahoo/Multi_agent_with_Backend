@@ -33,8 +33,8 @@ app.add_middleware(
 )
 
 # ── Routers ───────────────────────────────────────
-app.include_router(auth.router,   prefix="/api/v1/auth",  tags=["Auth"])
-app.include_router(health.router,                         tags=["Health"])
+app.include_router(auth.router,   prefix="/api/v1")
+app.include_router(health.router)
 app.include_router(chat.router,   prefix="/api/v1/chat",  tags=["Chat"])
 
 
