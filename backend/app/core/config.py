@@ -130,3 +130,5 @@ def get_default_model(provider: str) -> str:
         "gemini":    settings.DEFAULT_GEMINI_MODEL,
     }
     return default_map.get(provider, settings.DEFAULT_GROQ_MODEL)
+# TEMP DEBUG — remove after testing
+print(">>> PINECONE_API_KEY loaded:", repr(settings.PINECONE_API_KEY[:10] if settings.PINECONE_API_KEY else "EMPTY"))

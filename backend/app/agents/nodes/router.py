@@ -1,4 +1,4 @@
-from app.agents.state import AgentState
+from app.agents.state.state import AgentState
 from app.services.llm.factory import get_llm_provider
 from app.core.config import settings
 

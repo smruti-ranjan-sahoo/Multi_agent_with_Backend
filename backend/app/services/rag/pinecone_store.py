@@ -2,6 +2,10 @@ from langchain_community.embeddings import JinaEmbeddings
 from langchain_pinecone import PineconeVectorStore
 from pinecone import Pinecone, ServerlessSpec
 from app.core.config import settings
+from dotenv import load_dotenv
+load_dotenv()  # force reload .env
+import os
+print("ENV KEY:", os.getenv("PINECONE_API_KEY", "NOT FOUND"))
 
 
 def get_pinecone_client() -> Pinecone:

@@ -1,5 +1,5 @@
 from langgraph.graph import StateGraph, END
-from app.agents.state import AgentState
+from app.agents.state.state import AgentState
 from app.agents.nodes.router import router_node
 from app.agents.nodes.chat import chat_node
 from app.agents.nodes.rag import rag_node

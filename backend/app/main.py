@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from app.core.config import settings
 from app.db.database import create_tables
 from app.api.routes import auth, health, chat
-from app.services.redis.redis_service import redis_service  # add import
+from app.services.redis.redis_services import redis_service  # add import
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

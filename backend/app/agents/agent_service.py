@@ -1,6 +1,6 @@
 from langchain_core.messages import HumanMessage
-from app.agents.graph import agent_graph
-from app.agents.state import AgentState
+from app.agents.graph.graph import agent_graph
+from app.agents.state.state import AgentState
 from app.core.config import settings
 
 
