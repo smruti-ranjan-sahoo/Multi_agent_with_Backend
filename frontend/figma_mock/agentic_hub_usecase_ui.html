@@ -1374,9 +1374,41 @@
             });
           });
         }
+
+        // If model returns a single long paragraph, split by sentences
+        // so chat still renders as an interactive, scannable card.
+        if (!sections.length && lines.length === 1) {
+          const sentences = lines[0]
+            .split(/(?<=[.!?])\s+/)
+            .map(item => item.trim())
+            .filter(Boolean);
+
+          if (sentences.length > 1) {
+            summary = sentences[0];
+            sentences.slice(1, 7).forEach((sentence, index) => {
+              sections.push({
+                title: `Point ${index + 1}`,
+                body: sentence,
+              });
+            });
+          }
+        }
       }
 
       return { summary, sections, raw: text };
+    }
+
+    function toPlanSteps(value) {
+      if (Array.isArray(value)) {
+        return value
+          .map(item => String(item || '').trim())
+          .filter(Boolean);
+      }
+
+      return String(value || '')
+        .split(/\n+/)
+        .map(line => line.replace(/^\s*(?:[-*•]|\d+[.)])\s*/, '').trim())
+        .filter(Boolean);
     }
 
     function extractArtifacts(content) {
@@ -1415,6 +1447,35 @@
                   </button>
                 </div>
               `).join('')}
+            </div>
+          ` : kind === 'multi_agent' ? `
+            <div class="flex flex-wrap gap-2 mb-3">
+              <button type="button" class="vision-tab active px-3 py-1.5 rounded-lg border text-xs font-semibold text-slate-200" data-agent-view="plan">Plan</button>
+              <button type="button" class="vision-tab px-3 py-1.5 rounded-lg border text-xs font-semibold text-slate-200" data-agent-view="code">Improved Code</button>
+              <button type="button" class="vision-tab px-3 py-1.5 rounded-lg border text-xs font-semibold text-slate-200" data-agent-view="tests">Test Cases</button>
+              <button type="button" class="vision-tab px-3 py-1.5 rounded-lg border text-xs font-semibold text-slate-200" data-agent-view="final">Final</button>
+            </div>
+
+            <div data-agent-panel="plan" class="summary-view">
+              <div class="text-[11px] uppercase tracking-wider font-semibold text-slate-500 mb-2">Execution Plan</div>
+              <ol class="m-0 pl-5 text-sm leading-7 text-slate-700 list-decimal">
+                ${(toPlanSteps(payload.plan_steps || payload.sections?.find((s) => (s.title || '').toLowerCase() === 'plan')?.body || '').map((step) => `<li>${escapeHtml(step)}</li>`).join('')) || `<li>${escapeHtml(payload.summary || data.summary || 'Plan not available')}</li>`}
+              </ol>
+            </div>
+
+            <div data-agent-panel="code" class="summary-view hidden">
+              <div class="text-[11px] uppercase tracking-wider font-semibold text-slate-500 mb-2">Improved Code</div>
+              <pre class="vision-raw mt-0 mb-0 text-xs leading-6 text-slate-700 whitespace-pre-wrap break-words">${escapeHtml(payload.improved_code || payload.sections?.find((s) => (s.title || '').toLowerCase() === 'improved code')?.body || data.raw || responseText)}</pre>
+            </div>
+
+            <div data-agent-panel="tests" class="summary-view hidden">
+              <div class="text-[11px] uppercase tracking-wider font-semibold text-slate-500 mb-2">Test Cases</div>
+              <pre class="vision-raw mt-0 mb-0 text-xs leading-6 text-slate-700 whitespace-pre-wrap break-words">${escapeHtml(payload.test_cases || payload.sections?.find((s) => (s.title || '').toLowerCase() === 'test cases')?.body || 'No test cases provided.')}</pre>
+            </div>
+
+            <div data-agent-panel="final" class="summary-view hidden">
+              <div class="text-[11px] uppercase tracking-wider font-semibold text-slate-500 mb-2">Final Answer</div>
+              <p class="m-0 text-sm leading-6 text-slate-700 whitespace-pre-line">${escapeHtml(payload.answer || payload.response || responseText)}</p>
             </div>
           ` : `
             <div class="flex flex-wrap gap-2 mb-3">
@@ -1472,6 +1533,19 @@
             summaryPanels.forEach((panel) => panel.classList.add('hidden'));
             button.classList.add('active');
             const activePanel = summaryCard.querySelector(`[data-summary-panel="${target}"]`);
+            if (activePanel) activePanel.classList.remove('hidden');
+          });
+        });
+
+        const agentTabs = summaryCard.querySelectorAll('[data-agent-view]');
+        const agentPanels = summaryCard.querySelectorAll('[data-agent-panel]');
+        agentTabs.forEach((button) => {
+          button.addEventListener('click', () => {
+            const target = button.dataset.agentView;
+            agentTabs.forEach((tab) => tab.classList.remove('active'));
+            agentPanels.forEach((panel) => panel.classList.add('hidden'));
+            button.classList.add('active');
+            const activePanel = summaryCard.querySelector(`[data-agent-panel="${target}"]`);
             if (activePanel) activePanel.classList.remove('hidden');
           });
         });
@@ -2014,7 +2088,8 @@
         const data = await res.json();
         const reply = data.final_response || data.response || data.message || JSON.stringify(data);
         if (typingNode && typingNode.parentNode) typingNode.parentNode.removeChild(typingNode);
-        const renderRichCard = shouldUseRichCardForPrompt(prompt, activeUsecase);
+        const renderRichCard = ['basic_chat', 'document_qa', 'multi_agent'].includes(activeUsecase)
+          || shouldUseRichCardForPrompt(prompt, activeUsecase);
 
         if (renderRichCard) {
           appendMessage('assistant', {
@@ -2025,6 +2100,9 @@
             prompt,
             summary: data.response_data?.summary || reply,
             sections: data.response_data?.sections || [],
+            plan_steps: data.response_data?.plan_steps || [],
+            improved_code: data.response_data?.improved_code || '',
+            test_cases: data.response_data?.test_cases || '',
             sources: data.response_data?.sources || [],
             provider: data.provider || state.provider,
             model: data.model || state.model,
