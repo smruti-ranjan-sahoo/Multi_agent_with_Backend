@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from contextlib import asynccontextmanager
 from pathlib import Path
 from app.core.config import settings
@@ -49,12 +49,7 @@ app.include_router(chat_history.router,  prefix="/api/v1/chat",  tags=["Chat His
 
 @app.get("/")
 async def root():
-    return {
-        "app": settings.APP_NAME,
-        "version": settings.APP_VERSION,
-        "docs": "/docs",
-        "health": "/health",
-    }
+    return RedirectResponse(url="/ui-final", status_code=307)
 
 
 @app.get("/ui-final")
