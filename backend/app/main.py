@@ -49,22 +49,17 @@ app.include_router(chat_history.router,  prefix="/api/v1/chat",  tags=["Chat His
 
 @app.get("/")
 async def root():
-    return RedirectResponse(url="/ui-final", status_code=307)
+    return RedirectResponse(url="/ui", status_code=307)
 
 
-@app.get("/ui-final")
-async def ui_final():
+@app.get("/ui")
+async def ui():
     if FIGMA_UI_FILE.exists():
         return FileResponse(str(FIGMA_UI_FILE))
     return {
         "error": "UI final workspace not found",
         "expected_path": str(FIGMA_UI_FILE)
     }
-
-
-@app.get("/ui-prototype")
-async def ui_prototype():
-    return await ui_final()
 
 
 @app.get("/ui-auth")

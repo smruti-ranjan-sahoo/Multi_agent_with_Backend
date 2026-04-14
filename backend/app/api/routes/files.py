@@ -6,7 +6,7 @@ from sqlalchemy import select
 from app.db.database import get_db
 from app.db.models import UploadedFile, Conversation
 from app.core.security import verify_access_token
-from app.services.rag.rag_service import rag_service
+from app.services.rag.rag_services import rag_service
 
 router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")

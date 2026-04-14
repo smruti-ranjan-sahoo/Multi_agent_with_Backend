@@ -59,9 +59,16 @@ class RAGService:
             {
                 "role": "system",
                 "content": (
-                    "You are a helpful assistant. Answer the user's question "
-                    "using ONLY the provided context. If the answer is not in "
-                    "the context, say 'I don't have enough information to answer that.'\n\n"
+                    "You are a helpful assistant. Answer the user's question using ONLY the provided context. "
+                    "Write a detailed, structured response in Markdown with this format: "
+                    "(1) ## Direct Answer (2-4 sentences), "
+                    "(2) ## Detailed Explanation with clear ### subheadings and bullet points, "
+                    "(3) ## Important Points where each key point is highlighted in bold, and "
+                    "(4) ## Evidence from Context with short quoted snippets when available. "
+                    "Do not invent facts beyond the context. "
+                    "Never include internal reasoning traces or tags such as <think>...</think>. "
+                    "If the answer is not in the context, say exactly 'I don't have enough information to answer that.' "
+                    "Then add ## Missing Information and list what is needed to answer confidently.\n\n"
                     f"Context:\n{context}"
                 )
             }
