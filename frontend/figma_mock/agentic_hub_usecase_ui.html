@@ -226,6 +226,18 @@
     .sidebar {
       width: 222px;
       overflow: hidden;
+      min-height: 0;
+    }
+
+    .sidebar nav {
+      min-height: 0;
+    }
+
+    .recent-threads-panel {
+      flex-shrink: 0;
+      max-height: 28vh;
+      overflow-y: auto;
+      scrollbar-gutter: stable;
     }
 
     .sidebar .p-5,
@@ -479,6 +491,21 @@
       color: #d8e1ee !important;
     }
 
+    .sources-block .source-card {
+      background: rgba(11, 18, 32, 0.92) !important;
+      border: 1px solid #31465f !important;
+      color: #d8e1ee !important;
+    }
+
+    .sources-block .source-card-title {
+      color: #f1f5f9 !important;
+    }
+
+    .sources-block .source-card-snippet,
+    .sources-block .source-card-url {
+      color: #b9c7da !important;
+    }
+
     .summary-view[data-summary-panel="summary"] .summary-block {
       max-height: min(52vh, 36rem);
     }
@@ -678,7 +705,7 @@
 
       </nav>
 
-      <div class="px-3 py-2 border-t border-slate-800/70">
+      <div class="recent-threads-panel px-3 py-2 border-t border-slate-800/70">
         <p class="m-0 text-[10px] uppercase tracking-wider text-slate-400 mb-2">Recent</p>
         <div id="recentThreadsList" class="space-y-1"></div>
       </div>
@@ -1636,6 +1663,15 @@
       return text.trim();
     }
 
+    function stripInlineSourcesSection(value) {
+      let text = String(value || '').trim();
+      if (!text) return text;
+
+      // Remove a trailing markdown/plain-text Sources section if present.
+      text = text.replace(/\n\s*(?:#{1,6}\s*)?sources\s*:?\s*\n[\s\S]*$/i, '').trim();
+      return text;
+    }
+
     function estimateTokenCount(value) {
       const text = String(value || '').trim();
       if (!text) return 0;
@@ -1671,15 +1707,64 @@
         .replace(/\n/g, '<br>');
     }
 
+    function hasStrongCodeSignal(text) {
+      const value = String(text || '');
+      if (!value.trim()) return false;
+
+      if (/```[\s\S]*```/.test(value)) return true;
+
+      const syntaxSignal = /\b(def\s+\w+|class\s+\w+|function\s+\w+|const\s+\w+|let\s+\w+|var\s+\w+|import\s+\w+|from\s+\w+\s+import|SELECT\s+.+\s+FROM|CREATE\s+TABLE|INSERT\s+INTO)\b/i.test(value);
+      if (syntaxSignal) return true;
+
+      // Keep this strict to avoid non-coding research prompts being misclassified.
+      return /\b(write code|implement|build api|api endpoint|debug|bug fix|stack trace|refactor|unit test|pytest|jest|program in|python code|javascript code|typescript code|sql query)\b/i.test(value);
+    }
+
+    function shouldShowAgentCodingPanels(payload, usecase, responseText) {
+      if (usecase !== 'multi_agent') return false;
+
+      const prompt = String(payload.question || payload.prompt || '');
+      const improvedCode = String(payload.improved_code || '');
+      const testCases = String(payload.test_cases || '');
+      const defaultTestsText = 'add test coverage for success and failure cases.';
+
+      if (hasStrongCodeSignal(prompt)) return true;
+
+      const responseLooksLikeCode = hasStrongCodeSignal(responseText);
+      const improvedCodeLooksReal = hasStrongCodeSignal(improvedCode);
+      const testsLookReal =
+        testCases.trim().toLowerCase() !== defaultTestsText && hasStrongCodeSignal(testCases);
+
+      if (responseLooksLikeCode) return true;
+      if (improvedCodeLooksReal) return true;
+      if (testsLookReal) return true;
+
+      return false;
+    }
+
     function renderAssistantCard(payload, usecase) {
       const container = getMessageContainerByUsecase(usecase);
-      const responseText = sanitizeAssistantOutput(payload.answer || payload.response || payload.final_response || '');
+      let responseText = sanitizeAssistantOutput(payload.answer || payload.response || payload.final_response || '');
       const tokenCount = getTokenCountFromPayload(payload, responseText);
+      const sources = Array.isArray(payload.sources)
+        ? payload.sources
+        : (Array.isArray(payload.response_data?.sources) ? payload.response_data.sources : []);
+      if (sources.length) {
+        responseText = stripInlineSourcesSection(responseText);
+      }
       const data = parseRichResponse(responseText);
       const kind = payload.kind || payload.response_data?.kind || (usecase === 'document_qa' ? 'document_qa' : 'chat');
+      const isMultiAgentView = usecase === 'multi_agent' || kind === 'multi_agent';
+      const referencesNote = String(payload.references_note || payload.response_data?.references_note || '').trim();
+      const taskText = String(payload.question || payload.prompt || '').trim();
+      const taskPreview = taskText.length > 160 ? `${taskText.slice(0, 157)}...` : taskText;
+      const showAgentCodingPanels = shouldShowAgentCodingPanels(payload, usecase, responseText);
+      const headerTitle = isMultiAgentView
+        ? 'Multi-agent execution'
+        : (taskText || 'Assistant response');
       const promptText = payload.question || payload.prompt || '';
       const showSummaryTabs = shouldUseRichCardForPrompt(promptText, usecase);
-      const usePanelShell = payload.kind === 'image_generation' || kind === 'multi_agent';
+      const usePanelShell = payload.kind === 'image_generation' || showAgentCodingPanels;
       const box = document.createElement('div');
       box.className = kind === 'document_qa'
         ? 'message-bot vision-card compact-rich-card rounded-2xl rounded-tl-md p-5 w-full max-w-none shadow-sm'
@@ -1689,7 +1774,8 @@
         <div class="inline-flex items-center gap-2 text-[11px] uppercase tracking-wider font-semibold text-teal-800 bg-teal-50 px-2 py-1 rounded-full mb-2">${escapeHtml(kind === 'document_qa' ? 'Document QA' : payload.model ? `${kind.replace(/_/g, ' ')} - ${payload.model}` : kind.replace(/_/g, ' '))}</div>
         <div class="flex flex-wrap items-start justify-between gap-3 mb-3">
           <div>
-            <p class="m-0 text-sm font-semibold text-slate-900">${escapeHtml(payload.question || payload.prompt || 'Assistant response')}</p>
+            <p class="m-0 text-sm font-semibold text-slate-900">${escapeHtml(headerTitle)}</p>
+            ${isMultiAgentView && taskPreview ? `<p class="m-0 mt-1 text-xs text-slate-500">Task: ${escapeHtml(taskPreview)}</p>` : ''}
           </div>
           <div class="flex items-center gap-2">
             <span class="token-usage-chip">Tokens: ${tokenCount}</span>
@@ -1709,7 +1795,7 @@
                 </div>
               `).join('')}
             </div>
-          ` : kind === 'multi_agent' ? `
+          ` : showAgentCodingPanels ? `
             <div class="flex flex-wrap gap-2 mb-3">
               <button type="button" class="vision-tab active px-3 py-1.5 rounded-lg border text-xs font-semibold text-slate-200" data-agent-view="plan">Plan</button>
               <button type="button" class="vision-tab px-3 py-1.5 rounded-lg border text-xs font-semibold text-slate-200" data-agent-view="code">Improved Code</button>
@@ -1760,6 +1846,31 @@
           ` : `
             <div class="m-0 whitespace-pre-line">${renderMarkdownLite(responseText)}</div>
           `}
+
+          ${sources.length ? `
+            <div class="sources-block mt-4 pt-4 border-t border-slate-200/80">
+              <div class="flex items-center justify-between gap-3 mb-3">
+                <div class="text-[11px] uppercase tracking-wider font-semibold text-slate-500">Sources</div>
+                <div class="text-[11px] text-slate-500">${escapeHtml(String(sources.length))} reference${sources.length === 1 ? '' : 's'}</div>
+              </div>
+              <div class="grid grid-cols-1 gap-3">
+                ${sources.map((source, index) => `
+                  <div class="source-card rounded-xl p-3 shadow-sm">
+                    <div>
+                      <div class="text-[11px] uppercase tracking-wider font-semibold text-teal-700 mb-1">[${escapeHtml(String(source.rank || index + 1))}] ${escapeHtml(source.domain || 'web')}</div>
+                      <a href="${escapeHtml(source.url || '#')}" target="_blank" rel="noreferrer" class="source-card-title text-sm font-semibold hover:text-teal-300">${escapeHtml(source.title || source.url || 'Open source')}</a>
+                    </div>
+                    ${source.snippet ? `<p class="source-card-snippet m-0 mt-2 text-xs leading-6">${escapeHtml(source.snippet)}</p>` : ''}
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          ` : (isMultiAgentView && referencesNote) ? `
+            <div class="sources-block mt-4 pt-4 border-t border-slate-200/80">
+              <div class="text-[11px] uppercase tracking-wider font-semibold text-slate-500 mb-2">Sources</div>
+              <p class="m-0 text-xs leading-6 text-slate-400">${escapeHtml(referencesNote)}</p>
+            </div>
+          ` : ''}
         </div>
       `;
 

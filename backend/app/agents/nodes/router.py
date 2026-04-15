@@ -1,6 +1,7 @@
 from app.agents.state.state import AgentState
 from app.services.llm.factory import get_llm_provider
 from app.core.config import settings
+from app.agents.tools.web_search import should_use_web_search
 
 
 ROUTER_PROMPT = """You are a routing assistant. Based on the user's message, decide which agent should handle it.
@@ -31,7 +32,6 @@ async def router_node(state: AgentState) -> AgentState:
     if state.get("has_documents"):
         return {**state, "next_node": "document_qa"}
 
-    # ask LLM to decide based on last user message
     last_message = ""
     for msg in reversed(state["messages"]):
         if hasattr(msg, "type") and msg.type == "human":
@@ -40,6 +40,10 @@ async def router_node(state: AgentState) -> AgentState:
         elif isinstance(msg, dict) and msg.get("role") == "user":
             last_message = msg["content"]
             break
+
+    # Web/current-info prompts should go straight to the research agent.
+    if should_use_web_search(last_message):
+        return {**state, "next_node": "multi_agent"}
 
     try:
         provider = get_llm_provider(state.get("provider", settings.DEFAULT_LLM_PROVIDER))

@@ -11,6 +11,7 @@ from app.services.rag.rag_services import rag_service
 from app.services.audio_service import get_audio_service
 from app.core.security import verify_access_token
 from app.core.config import settings, get_models_for_provider
+from app.agents.tools.web_search import get_search_diagnostics
 
 router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
@@ -91,6 +92,11 @@ class TextToSpeechRequest(BaseModel):
 class SpeechToTextRequest(BaseModel):
     language: str = "en"
     prompt: Optional[str] = None
+
+
+class WebSearchDiagnosticsRequest(BaseModel):
+    query: str
+    max_results: int = 5
 
 
 # ── Send Message ───────────────────────────────────
@@ -180,6 +186,17 @@ async def get_models(
 async def get_providers(token: str = Depends(oauth2_scheme)):
     verify_access_token(token)
     return {"providers": get_supported_providers()}
+
+
+# ── Web Search Diagnostics ──────────────────────────
+@router.post("/web-search-diagnostics")
+async def web_search_diagnostics(
+    req: WebSearchDiagnosticsRequest,
+    token: str = Depends(oauth2_scheme)
+):
+    verify_access_token(token)
+    max_results = max(1, min(req.max_results, 10))
+    return await get_search_diagnostics(req.query, max_results=max_results)
 
 
 # ── Audio: Speech-to-Text ──────────────────────────

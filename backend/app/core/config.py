@@ -72,6 +72,7 @@ class Settings(BaseSettings):
         "gemini-1.5-flash",
         "gemini-1.0-pro",
     ]
+
         # ── All Providers List ─────────────────────────
     LLM_PROVIDERS: list = ["groq", "openai", "anthropic", "gemini"]
 
