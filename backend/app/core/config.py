@@ -108,6 +108,21 @@ class Settings(BaseSettings):
     LANGCHAIN_API_KEY: str = ""
     LANGCHAIN_PROJECT: str = "multi-agent-chatbot"
 
+    from pydantic import field_validator
+
+    @field_validator("DATABASE_URL", mode="before")
+    @classmethod
+    def assemble_db_url(cls, v: str) -> str:
+        if not v:
+            return "sqlite+aiosqlite:///./app.db"
+        if v.startswith("postgres://"):
+            return v.replace("postgres://", "postgresql+asyncpg://", 1)
+        if v.startswith("postgresql://"):
+            return v.replace("postgresql://", "postgresql+asyncpg://", 1)
+        if v.startswith("sqlite://"):
+            return v.replace("sqlite://", "sqlite+aiosqlite://", 1)
+        return v
+
     class Config:
         env_file = (str(BACKEND_DIR / ".env"), str(PROJECT_ROOT / ".env"))
         env_file_encoding = "utf-8"

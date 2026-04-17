@@ -5,7 +5,9 @@ from typing import Any
 import requests
 import streamlit as st
 
-BASE_URL = "http://localhost:8000"
+import os
+
+BASE_URL = os.environ.get("BACKEND_URL", "http://localhost:8000")
 API_V1 = f"{BASE_URL}/api/v1"
 
 PROVIDERS = ["groq", "openai", "anthropic", "gemini"]
